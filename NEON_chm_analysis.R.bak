@@ -1,0 +1,340 @@
+## ----install_packages, eval=FALSE------------------------------------------------------------------------
+##
+## install.packages("neonUtilities")
+## install.packages("sp")
+## install.packages("raster")
+## install.packages("devtools")
+## devtools::install_github("NEONScience/NEON-geolocation/geoNEON")
+##
+
+## install.packages("dplyr")
+
+
+## ----load-packages, results="hide"-----------------------------------------------------------------------
+
+library(sp)
+library(raster)
+library(neonUtilities)
+library(geoNEON)
+## library(dplyr)
+
+options(stringsAsFactors=F)
+
+# set working directory
+# adapt directory path for your system
+wd <- "~/data"
+# setwd(wd)
+
+## Specify the case: domain site, year (plotID?)
+domain    = 'D19'
+site      = 'HEAL'
+year      = '2021'
+visit     = ''
+# plotID    = '074'
+# sitePlot  = paste0(site, '_', plotID)
+fullSite  = paste0(year, '_', site, '_', visit)
+startDate = paste0(year, '-01')
+endDate   = paste0(year, '-12')
+
+## Tile parameters: x0 = lower left, y0 = upper left
+# x0 = 580000  #WREF
+# y0 = 5075000 #WREF
+
+whiteSpruce = "Picea glauca (Moench) Voss"
+blackSpruce = "Picea mariana (Mill.) Britton, Sterns & Poggenb."
+spruceTrees = factor(c(whiteSpruce, blackSpruce))
+
+## list of scientific names found in HEAL
+species = factor(c('species',
+  "Alnus viridis (Chaix) DC",
+  "Betula glandulosa Michx.",
+  "Betula occidentalis Hook.",
+  "Ledum palustre L.",
+  "Picea glauca (Moench) Voss",
+  "Picea mariana (Mill.) Britton, Sterns & Poggenb.",
+  "Salix bebbiana Sarg.",
+  "Salix glauca L.",
+  "Salix myrtillifolia Andersson",
+  "Salix pulchra Cham.",
+  "Vaccinium uliginosum L."))
+
+## which of species are trees, not shrubs (needs review)
+isTree = c(FALSE, TRUE , TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, FALSE)
+
+
+## ----veglist, results="hide"-----------------------------------------------------------------------------
+
+veglist <- loadByProduct(dpID="DP1.10098.001",
+                         site= site,
+                         package="basic",
+                         check.size = FALSE,
+                         startdate = startDate,
+                         enddate   = endDate,
+                         nCores =  6)
+
+## ----vegmap, results="hide"------------------------------------------------------------------------------
+
+vegmap <- getLocTOS(veglist$vst_mappingandtagging,
+                    "vst_mappingandtagging")
+
+## ----veg_merge-------------------------------------------------------------------------------------------
+
+veg <- merge(veglist$vst_apparentindividual, vegmap,
+             by=c("individualID","namedLocation",
+                  "domainID","siteID","plotID"))
+
+## filter by trees, not shrubs
+vegsub = veg[which(veg$growthForm=="single bole tree" |
+                 veg$growthForm=="multi-bole tree"  |
+                 veg$growthForm=="small tree"),]
+
+## filter by desired variables. variables obtained from colnames(veg)
+desiredVariables = c(
+  "individualID",
+  "namedLocation",
+# "domainID",
+# "siteID",
+  "plotID",
+# "uid.x",
+   "date.x",
+# "eventID.x",
+# "tempStemID",
+# "tagStatus",
+  "growthForm",
+  "plantStatus",
+  "stemDiameter",
+  "measurementHeight",
+  "changedMeasurementLocation",
+  "height",
+# "baseCrownHeight",
+# "breakHeight",
+# "breakDiameter",
+  "maxCrownDiameter",
+  "ninetyCrownDiameter",
+  "canopyPosition",
+# "shape",
+  "basalStemDiameter",
+# "basalStemDiameterMsrmntHeight" ,
+# "maxBaseCrownDiameter",
+# "ninetyBaseCrownDiameter",
+# "dendrometerInstallationDate",
+# "initialGapMeasurementDate",
+# "initialBandStemDiameter",
+# "initialDendrometerGap",
+# "dendrometerHeight",
+# "dendrometerGap",
+# "dendrometerCondition",
+# "bandStemDiameter",
+# "remarks.x",
+# "recordedBy.x",
+# "measuredBy.x",
+# "dataQF.x",
+# "publicationDate.x",
+# "release.x",
+# "uid.y",
+# "date.y",
+# "eventID.y",
+  "subplotID",
+# "nestedSubplotID",
+# "pointID",
+# "stemDistance",
+# "stemAzimuth",
+# "recordType",
+# "supportingStemIndividualID",
+# "previouslyTaggedAs",
+# "samplingProtocolVersion",
+  "taxonID",
+  "scientificName",
+# "taxonRank",
+# "identificationReferences",
+# "morphospeciesID",
+# "morphospeciesIDRemarks",
+# "identificationQualifier",
+# "remarks.y",
+# "measuredBy.y",
+# "recordedBy.y",
+# "dataQF.y",
+# "publicationDate.y",
+# "release.y",
+  "utmZone",
+  "adjNorthing",
+  "adjEasting",
+  "adjCoordinateUncertainty",
+  "adjDecimalLatitude",
+  "adjDecimalLongitude",
+  "adjElevation",
+  "adjElevationUncertainty")
+
+vegsub = vegsub[desiredVariables]
+##write.csv(vegsub, 'vegsub.csv')
+
+## get a list of the tree names at this site
+# treeNames = sort(unique(veglist$vst_mappingandtagging$scientificName))
+## ----get an array of the plotID's, sorted
+sitePlots = sort(unique(vegsub$plotID))
+nSP = length(sitePlots)
+
+## ----plot-1----------------------------------------------------------------------------------------------
+symbols(vegsub$adjEasting,
+        vegsub$adjNorthing,
+        circles=vegsub$stemDiameter/100/2, asp = 1,
+        inches=.1, xlab="Easting", ylab="Northing")
+
+
+
+## ----plot-2----------------------------------------------------------------------------------------------
+
+symbols(vegsub$adjEasting,
+        vegsub$adjNorthing,
+        circles=vegsub$stemDiameter/100/2, asp = 1,
+        inches=0.1, xlab="Easting", ylab="Northing")
+symbols(vegsub$adjEasting,
+        vegsub$adjNorthing,
+        circles=vegsub$adjCoordinateUncertainty, asp = 1,
+        inches=0.1, add=T, fg="lightblue")
+
+
+
+## ----get-chm, results="hide"-----------------------------------------------------------------------------
+
+# byTileAOP(dpID="DP3.30015.001", site="WREF", year="2017",
+#           easting=veg$adjEasting[which(veg$plotID=="WREF_075")],
+#           northing=veg$adjNorthing[which(veg$plotID=="WREF_075")],
+#           check.size = FALSE, savepath=wd)
+# chm <- raster(paste0(wd, "/DP3.30015.001/2017/FullSite/D16/2017_WREF_1/L3/DiscreteLidar/CanopyHeightModelGtif/NEON_D16_WREF_DP3_580000_5075000_CHM.tif"))
+
+## create a single CHM image over the range of vegsub
+## (done in idl on casper)
+rasterName <- "F:/Above/Data/NEON/Sites/HEAL/2021/mosaic.tif"
+## but use
+chm <- raster(rasterName)
+
+
+## ----plot-chm--------------------------------------------------------------------------------------------
+
+plot(chm, col=topo.colors(5))
+
+
+
+## ----vegsub----------------------------------------------------------------------------------------------
+
+vegsub <- veg[which(vegsub$adjEasting >= extent(chm)[1] &
+                    vegsub$adjEasting <= extent(chm)[2] &
+                    vegsub$adjNorthing >= extent(chm)[3] &
+                    vegsub$adjNorthing <= extent(chm)[4]),]
+
+
+
+## ----buffer-chm------------------------------------------------------------------------------------------
+
+bufferCHM <- extract(chm,
+                     cbind(vegsub$adjEasting,
+                           vegsub$adjNorthing),
+                     buffer=vegsub$adjCoordinateUncertainty,
+                     fun=max)
+
+plot(bufferCHM~vegsub$height, pch=20, xlab="Height",
+     ylab="Canopy height model")
+lines(c(0,50), c(0,50), col="grey")
+
+
+
+## ----corr-buffer-----------------------------------------------------------------------------------------
+
+cor(bufferCHM, vegsub$height, use="complete")
+
+
+
+## ----round-x-y-------------------------------------------------------------------------------------------
+
+easting10 <- 10*floor(vegsub$adjEasting/10)
+northing10 <- 10*floor(vegsub$adjNorthing/10)
+vegsub <- cbind(vegsub, easting10, northing10)
+
+
+
+## ----vegbin----------------------------------------------------------------------------------------------
+
+vegbin <- stats::aggregate(vegsub, by=list(vegsub$easting10, vegsub$northing10), FUN=max)
+
+
+
+## ----CHM-10----------------------------------------------------------------------------------------------
+
+CHM10 <- raster::aggregate(chm, fact=10, fun=max)
+plot(CHM10, col=topo.colors(5))
+
+
+
+## ----adj-tree-coord--------------------------------------------------------------------------------------
+
+vegbin$easting10 <- vegbin$easting10+5
+vegbin$northing10 <- vegbin$northing10+5
+binCHM <- extract(CHM10, cbind(vegbin$easting10,
+                               vegbin$northing10))
+plot(binCHM~vegbin$height, pch=20,
+     xlab="Height", ylab="Canopy height model")
+lines(c(0,50), c(0,50), col="grey")
+
+
+
+## ----cor-2-----------------------------------------------------------------------------------------------
+
+cor(binCHM, vegbin$height, use="complete")
+
+
+
+## ----vegsub-2--------------------------------------------------------------------------------------------
+
+vegsub <- vegsub[order(vegsub$height, decreasing=T),]
+
+
+
+## ----vegfil----------------------------------------------------------------------------------------------
+
+vegfil <- vegsub
+for(i in 1:nrow(vegsub)) {
+  if(is.na(vegfil$height[i]))
+    next
+  dist <- sqrt((vegsub$adjEasting[i]-vegsub$adjEasting)^2 +
+                 (vegsub$adjNorthing[i]-vegsub$adjNorthing)^2)
+  vegfil$height[which(dist<0.3*vegsub$height[i] &
+                        vegsub$height<vegsub$height[i])] <- NA
+}
+
+vegfil <- vegfil[which(!is.na(vegfil$height)),]
+
+
+
+## ----filter-chm------------------------------------------------------------------------------------------
+
+filterCHM <- extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
+                     buffer=vegfil$adjCoordinateUncertainty+1, fun=max)
+plot(filterCHM~vegfil$height, pch=20,
+     xlab="Height", ylab="Canopy height model")
+lines(c(0,50), c(0,50), col="grey")
+
+
+
+## ----cor-3-----------------------------------------------------------------------------------------------
+
+cor(filterCHM,vegfil$height)
+
+
+
+## ----live-trees------------------------------------------------------------------------------------------
+
+vegfil <- vegfil[which(vegfil$plantStatus=="Live"),]
+filterCHM <- extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
+                     buffer=vegfil$adjCoordinateUncertainty+1, fun=max)
+plot(filterCHM~vegfil$height, pch=20,
+     xlab="Height", ylab="Canopy height model")
+lines(c(0,50), c(0,50), col="grey")
+
+
+
+## ----cor-4-----------------------------------------------------------------------------------------------
+
+cor(filterCHM,vegfil$height)
+
+write.table(vegsub)

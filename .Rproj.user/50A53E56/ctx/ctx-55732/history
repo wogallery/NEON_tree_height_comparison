@@ -1,0 +1,512 @@
+cat(paste('year: ',year,'\n'))
+cat(paste('site: ',siteCode,'\n'))
+#check that dpID is valid (if dpID is not valid, this will display error message and exit the script)
+checkdpID(dpID)
+#download dpID for that site and year
+makeDir(dataRootDir)
+if (is.null(apiToken)) {
+byFileAOP(dpID, site=siteCode,year=year,check.size=F,savepath=dataRootDir)}
+else {
+byFileAOP(dpID, site=siteCode,year=year,check.size=F,savepath=dataRootDir,token=apiToken)}
+dataPaths <- getDataPaths(dpID)
+dataAbbrs <- getDataAbbr(dpID)
+cat('Data Name(s):\n')
+cat(dataAbbrs,sep='\n')
+dataExts <- getDataExts(dpID)
+downloadDirs <- getDownloadDirs(dataRootDir,siteCode,dpID,year)
+# allDownloadDirs <- unique(dirname(list.files(file.path(dataRootDir,dpID,'neon-aop-products',year),rec=T))) #only list folders with files
+# cat('All download folders:\n')
+# print(allDownloadDirs[2:length(allDownloadDirs)])
+dataDirs <- getDataDirs(dataRootDir,siteCode,dpID,downloadDirs)
+cat('Data directories:\n')
+cat(dataDirs,sep='\n')
+# if data product is veg indices or water indices, unzip first
+if (dpID == "DP3.30019.001" | dpID == "DP3.30026.001") {
+cat('Unzipping folders\n')
+zippedDataFolders <- getZippedFolders(dataDirs)
+for (i in 1:length(zippedDataFolders)) {
+mapply(unzip, zipfile = zippedDataFolders[[i]], exdir = dataDirs[[i]])
+}
+}
+#get the list of dataTiles for each data directory and extension
+dataTiles <- getDataTilesByExt(dataDirs,dataExts)
+cat('Creating full site mosaics\n')
+fullMosaics <- list()
+fullMosaicNames <- list()
+for (i in 1:length(dataTiles)) {
+fullMosaics[[i]] <- mergeDataTiles(dataTiles[[i]])
+dataDirSplit <- unlist(strsplit(dataTiles[[i]][1],.Platform$file.sep))
+tileNameSplit <- unlist(strsplit(dataTiles[[i]][1],'_'))
+if (tail(tileNameSplit,1)=='error.tif') {
+fullMosaicNames[[i]] <- paste0(dataDirSplit[9],'_',tail(tileNameSplit,n=2)[1],'_error.tif')}
+else {
+fullMosaicNames[[i]] <- paste0(dataDirSplit[9],'_',tail(tileNameSplit,n=1))}
+}
+cat('Writing full mosaics to Geotiffs and Cloud-Optimized Geotiffs\n')
+makeDir(outFileDir)
+for (i in 1:length(fullMosaics)) {
+outFileTif <- fullMosaicNames[[i]]
+cat(paste0('Generating ',outFileTif,'\n'))
+writeFullMosaicTif(fullMosaics[[i]],outFileDir,outFileTif)
+# name the COG file the same as tif but with COG suffix
+outFileCog <- gsub(".tif", "_COG.tif", outFileTif)
+cat(paste0('Generating ',outFileCog,'\n'))
+convertTif2Cog(outFileDir,outFileTif,outFileCog)
+}
+}
+## a program to merge all the 1 m camera rgb files into a single geotif image
+# Load required packages
+library(neonUtilities)
+library(raster)
+library(gdalUtilities)
+library(data.table)
+library(docstring)
+dpIDget <- "DP3.30010.001" #Camera tiles
+yearGet <- '2021'
+siteGet <- 'HEAL'
+dataDir <- 'f:/data/DP3.30010.001/neon-aop-products/2021/FullSite/D19/2021_HEAL_4/L3/Camera/Mosaic'
+outputDir <- 'f:/data/DP3.30010.001/neon-aop-products/2021/FullSite/D19/2021_HEAL_4/L3/Camera/FullMosaic'
+## get the 1 m tiles
+source("F:/NEON/Tutorials/VegStrCHMR/merge_RGB_tiles.R")
+debugSource("F:/NEON/Tutorials/VegStrCHMR/R/NEON_chm_analysis.R")
+source("F:/NEON/Tutorials/VegStrCHMR/merge_RGB_tiles.R")
+source("F:/NEON/Tutorials/VegStrCHMR/aop_merge_raster_functions.R")
+source("F:/NEON/Tutorials/VegStrCHMR/merge_RGB_tiles.R")
+dataTiles <- list(list.files(dataDirs,pattern="*image.tif$",full.names=TRUE,ignore.case=TRUE))
+source("F:/NEON/Tutorials/VegStrCHMR/aop_merge_raster_functions.R")
+View(dataTiles)
+dataTiles <- list(list.files(dataDirs,pattern="*image.tif$",full.names=TRUE,ignore.case=TRUE))
+dataTiles
+dataTiles[1]
+dataTiles[2]
+dataDirs
+dataTiles <- list(list.files(dataDirs,pattern="*image.tif$",full.names=TRUE,ignore.case=TRUE))
+dataTiles[1]
+lengthh(dataTiles[1])
+length(dataTiles[1])
+length(dataTiles[[1]])
+foo = list.files(dataDirs,pattern="*image.tif$",full.names=TRUE,ignore.case=TRUE)
+foo
+foo = list.files(dataDirs,pattern="*image.tif$",full.names=TRUE,ignore.case=TRUE)
+length(foo)
+dataTiles <- list(list.files(dataDirs,pattern="*image.tif$",full.names=TRUE,ignore.case=TRUE))
+if (length(dataTiles) == 0) {
+if (length(dataTiles) == 0) {
+}
+}
+debugSource("F:/NEON/Tutorials/VegStrCHMR/merge_RGB_tiles.R")
+dataTiles
+length(dataTiles)
+outFileTif
+outFileDir
+dataTiles
+rasters <- lapply(dataTiles,FUN=brick)
+dataTiles[1]
+dataTiles[1]
+rasters <- lapply(dataTiles[1],FUN=brick)
+dataTiles[[1]]
+rasters <- lapply(dataTiles[[1]],FUN=brick)
+rasters
+fullMosaic <- do.call(merge, c(rasters, tolerance = 1))
+View(fullMosaic)
+View(fullMosaic)
+writeRaster(fullMosaic,file=file.path(outFileDir,outFileTif), format="GTiff", overwrite=TRUE)
+image(fullMosaic)
+image(fullMosaics)
+summary(fullMosaic)
+histogram(fullMosaic)
+hist(fullMosaic)
+c(rasters, tolerance = 1)
+c(1.2.5,999)
+c(1, 2, 5, 999.)
+c(1, 2, 5, 999., tolerance = 1)
+c(1, 2, 5, 999., tolerance = 0)
+c(1, 2, 5, 999., tolerance = 10)
+x = c(1, 2, 5, 999., tolerance = 10)
+x
+x.tolerance
+image(fullMosaics, aspect = 1)
+image(fullMosaic, aspect = 1)
+image(fullMosaic, asp = 1)
+warnings()
+hcl.colors(255, palette = hcl())
+hcl.colors(255, palette = hcl)
+hcl.colors(255, palette = 'hcl')
+hcl.colors(255, palette = 'HCL')
+hcl.colors(255, palette = 'RGB')
+hcl.pals()
+plot(fullMosaic, aspect = 1)
+plot(fullMosaic, aspect = 1)
+plot(fullMosaic, asp = 1)
+file = paste0(outFileDir,outFileTif)
+gdal_info(file)
+GDAL_info(file)
+gdalinfo(file)
+gdalinfo(file, -stats)
+file
+file = paste0(outFileDir,'/',outFileTif)
+file
+gdalinfo(file, -stats)
+file.exists(f)
+file.exists(file)
+gdalinfo(file, -stats)
+gdalinfo(file, -mm)
+gdalinfo file
+gdalinfo(file, mm)
+gdalinfo(file)
+gdalinfo(file, stats)
+x = gdalinfo(file, stats)
+x = gdalinfo(file)
+x
+library(neonUtilities)
+getwd()
+setwd("f:/NEON/data/")
+getwd()
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+#           easting=veg$adjEasting[which(veg$plotID=="WREF_075")],
+#           northing=veg$adjNorthing[which(veg$plotID=="WREF_075")],
+check.size = FALSE, savepath=wd)
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting  = c(383000.00,  399000.00),
+northing = c(7080000.0,  7091000.0)
+check.size = FALSE, savepath=wd)
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting  = c(383000.00,  399000.00),
+northing = c(7080000.0,  7091000.0),
+check.size = FALSE, savepath=wd)
+wd
+wd = getwd()
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting  = c(383000.00,  399000.00),
+northing = c(7080000.0,  7091000.0),
+check.size = FALSE, savepath=wd)
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting  = c(385000.00,       397000.00),
+northing = c(7079000.0,       7093000.0),
+check.size = FALSE, savepath=wd)
+chmlist <- loadByProduct(dpID="DP3.30015.001",
+site="HEAL",
+startdate = "2021-01",
+enddate   = "2021-12",
+package="basic",
+nCors = 6
+check.size = FALSE)
+chmlist <- loadByProduct(dpID="DP3.30015.001",
+site="HEAL",
+startdate = "2021-01",
+enddate   = "2021-12",
+package="basic",
+nCores = 6
+check.size = FALSE)
+chmlist <- loadByProduct(dpID="DP3.30015.001",
+site="HEAL",
+startdate = "2021-01",
+enddate   = "2021-12",
+package="basic",
+nCores = 6,
+check.size = FALSE)
+byfile("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd)
+byFileAOP("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd)
+y
+byFileAOP("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd)
+byFileAOP("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd, )
+byfile("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd,
+check.size = FALSE)
+byfile("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd,
+check.size = FALSE)
+byfileAOP("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd,
+check.size = FALSE)
+byFileAOP("DP3.30015.001",
+"HEAL",
+"2021",
+savepath = wd,
+check.size = FALSE)
+debugSource("F:/NEON/Tutorials/VegStrCHMR/NEON_chm_analysis.R")
+View(veglist)
+View(vegmap)
+vegmap$adjNorthing
+min(vegmap$adjNorthing)
+min(vegmap$adjNorthing,na_RM = FALSE)
+min(vegmap$adjNorthing,na_RM = TRUE)
+min(vegmap$adjNorthing, na.rm = TRUE)
+max(vegmap$adjNorthing, na.rm = TRUE)
+y0 = min(vegmap$adjNorthing. na.rm = TRUE)
+x0 = min(vegmap$adjEasting, na.rm = TRUE)
+x1 = max(vegmap$adjEasting, na.rm = TRUE)
+y0 = min(vegmap$adjNorthing, na.rm = TRUE)
+y1 = max(vegmap$adjNorthing, na.rm = TRUE)
+x0, x1
+x0
+x1
+y0
+y1
+View(veg2)
+xx0 = min(veg2$adjEasting, na.rm = TRUE)
+xx0
+x0
+xx1 = min(veg2$adjEasting, na.rm = TRUE)
+min(veg$adjEasting, na.rm = TRUE)
+min(veg1$adjEasting, na.rm = TRUE)
+min(veg2$adjEasting, na.rm = TRUE)
+min(veglist$adjEasting, na.rm = TRUE)
+min(vegmap$adjEasting, na.rm = TRUE)
+veg$adjEasting[which(veg$plotID=="WREF_075")]
+veg$adjEasting[580000]
+veg$adjEasting[which(veg$plotID=="HEAL_073")]
+which(veg$plotID=="HEAL_073")
+rasterName <- "F:\Above\Data\NEON\Sites\HEAL\2021\mosaic.tif"
+rasterName <- "F:/Above/Data/NEON/Sites/HEAL/2021/mosaic.tif"
+chm <- raster(rasterName)
+plot(chm, col=topo.colors(5))
+summarize, raster
+summary, raster
+summary, raster
+summary(raster)
+summarize(raster)
+summarize, raster()
+rasterName
+chm <- raster(rasterName, , xmin = x0, xmax = x1, ymin = y0, ymax = y1)
+chm
+x0
+chm <- raster(rasterName, xmin = x0, xmax = x1, ymin = y0, ymax = y1)
+chm
+plot(chm, col=topo.colors(5))
+chm <- raster(rasterName, xmin = x0, xmax = x1, ymin = y0, ymax = y1)
+summary(chm)
+crs(chm)
+CHM <- extract(chm,
+cbind([[x0, x1]]
+[[x0, x1]]
+[x0, x1, y0, y1]
+cbind([x0, x1, y0, y1])
+cbind(x0, x1, y0, y1)
+CHM <- extract(chm,
+cbind(x0, x1, y0, y1),
+buffer=vegsub$adjCoordinateUncertainty,
+fun=max)
+CHM <- extract(chm,
+cbind([x0, x1], [y0, y1]),
+vegsub$adjEasting
+veg$adjEasting
+summary(veg$adjEasting)
+CHM <- extract(chm,
+cbind(x0, y0),
+buffer=vegsub$adjCoordinateUncertainty,
+fun=max)
+CHM <- extract(chm,
+cbind(x0, y0),
+buffer=veg$adjCoordinateUncertainty,
+fun=max)
+summary(chm)
+chm
+chm <- extract(chmAll,
+cbind(veg2$adjEasting,
+veg2$adjNorthing),
+buffer=veg2$adjCoordinateUncertainty,
+fun=max)
+rasterName <- "F:/Above/Data/NEON/Sites/HEAL/2021/mosaic.tif"
+chmAll <- raster(rasterName)
+chm <- extract(chmAll,
+cbind(veg2$adjEasting,
+veg2$adjNorthing),
+buffer=veg2$adjCoordinateUncertainty,
+fun=max)
+chm
+plot(chm, col=topo.colors(5))
+summary(chm)
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$stemDiameter/100/2, asp = 1,
+inches=0.1, xlab="Easting", ylab="Northing")
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$adjCoordinateUncertainty,
+inches=0.1, add=T, fg="lightblue")
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$stemDiameter/100/2, asp = 1,
+inches=0.1, xlab="Easting", ylab="Northing")
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$adjCoordinateUncertainty, asp = 1,
+inches=0.1, add=T, fg="lightblue")
+plot(chm, col=topo.colors(5))
+chm
+plot(chmAll, col=topo.colors(5))
+nSP
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$stemDiameter/100/2, asp = 1,
+inches=0.1, xlab="Easting", ylab="Northing")
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$adjCoordinateUncertainty, asp = 1,
+inches=0.1, add=T, fg="lightblue")
+filterCHM <- extract(chmAll,
+cbind(veg2$adjEasting,
+veg2$adjNorthing),
+buffer=veg2$adjCoordinateUncertainty,
+fun=max)
+## ----plot-chm--------------------------------------------------------------------------------------------
+plot(filterCHM, col=topo.colors(5))
+vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
+veg$adjEasting <= extent(chm)[2] &
+veg$adjNorthing >= extent(chm)[3] &
+veg$adjNorthing <= extent(chm)[4]),]
+View(veg)
+View(veg)
+vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
+veg$adjEasting <= extent(chm)[2] &
+veg$adjNorthing >= extent(chm)[3] &
+veg$adjNorthing <= extent(chm)[4]),]
+vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
+veg$adjEasting <= extent(chm)[2] &
+veg$adjNorthing >= extent(chm)[3] &
+veg$adjNorthing <= extent(chm)[4])]
+View(vegsub)
+extent(chm)[1]
+extent(chm)[1, 2, 3,4]
+View(veg)
+which(veg$adjEasting >= extent(chm)[1] &
+veg$adjEasting <= extent(chm)[2] &
+veg$adjNorthing >= extent(chm)[3] &
+veg$adjNorthing <= extent(chm)[4])
+gc()
+gc()
+debugSource("F:/NEON/Tutorials/VegStrCHMR/NEON_chm_analysis.R")
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$stemDiameter/100/2, asp = 1,
+inches=.1, xlab="Easting", ylab="Northing")
+## ----plot-2----------------------------------------------------------------------------------------------
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$stemDiameter/100/2, asp = 1,
+inches=0.1, xlab="Easting", ylab="Northing")
+symbols(veg2$adjEasting,
+veg2$adjNorthing,
+circles=veg2$adjCoordinateUncertainty, asp = 1,
+inches=0.1, add=T, fg="lightblue")
+rasterName <- "F:/Above/Data/NEON/Sites/HEAL/2021/mosaic.tif"
+## but use
+chm <- raster(rasterName)
+plot(chm, col=topo.colors(5))
+vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
+veg$adjEasting <= extent(chm)[2] &
+veg$adjNorthing >= extent(chm)[3] &
+veg$adjNorthing <= extent(chm)[4]),]
+bufferCHM <- extract(chm,
+cbind(veg2$adjEasting,
+veg2$adjNorthing),
+buffer=veg2$adjCoordinateUncertainty,
+fun=max)
+plot(bufferCHM~vegsub$height, pch=20, xlab="Height",
+ylab="Canopy height model")
+vegsub <- veg[which(veg2$adjEasting >= extent(chm)[1] &
+veg2$adjEasting <= extent(chm)[2] &
+veg2$adjNorthing >= extent(chm)[3] &
+veg2$adjNorthing <= extent(chm)[4]),]
+bufferCHM <- extract(chm,
+cbind(veg2$adjEasting,
+veg2$adjNorthing),
+buffer=veg2$adjCoordinateUncertainty,
+fun=max)
+plot(bufferCHM~vegsub$height, pch=20, xlab="Height",
+ylab="Canopy height model")
+plot(bufferCHM~veg2$height, pch=20, xlab="Height",
+ylab="Canopy height model")
+lines(c(0,50), c(0,50), col="grey")
+cor(bufferCHM, vegsub$height, use="complete")
+cor(bufferCHM, veg2$height, use="complete")
+easting10 <- 10*floor(veg2$adjEasting/10)
+northing10 <- 10*floor(veg2$adjNorthing/10)
+vegsub <- cbind(veg2, easting10, northing10)
+vegbin <- stats::aggregate(vegsub, by=list(vegsub$easting10, vegsub$northing10), FUN=max)
+cbind(veg2, easting10, northing10)
+debugSource("F:/NEON/Tutorials/VegStrCHMR/NEON_chm_analysis.R")
+View(vegbin)
+debugSource("F:/NEON/Tutorials/VegStrCHMR/NEON_chm_analysis.R")
+View(veglist)
+View(CHM10)
+View(chm)
+cor(binCHM, vegbin$height, use="complete")
+chmPath <- "F:/NEON/data/DP3.30010.001/neon-aop-products/2021/FullSite/D19/2021_HEAL_4/L3/Camera/p1_meter_tiles/"
+chmTiles <- list.file(path = chmPath, "*.tif")
+chmTiles <- list.files(path = chmPath, "*.tif")
+View(vegbin)
+library(gdalUtilities)
+install.packages("gdalUtilities")
+install.packages("gdalUtilities")
+library(gdalUtils)
+library(gdalUtilities)
+library(rgdal)
+e <- extent(-131, -124, 49, 53)
+e
+template <- raster(e)
+template
+chmTiles <- list.files(path = chmPath, "*.tif")
+chmTiles
+easting=veg$adjEasting[which(veg)]
+easting=veg$adjEasting[which(vegplotID in sitePlots)]
+easting=veg$adjEasting[which(vegplotID == sitePlots)]
+easting=veg$adjEasting[which(veg$plotID == sitePlots)]
+easting
+easting=veg$adjEasting[which(vegsub$plotID == sitePlots)]
+easting
+length(chmTiles)
+c[1: length(chmTiles)]
+c(1: length(chmTiles))
+iSite = 1
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting=veg$adjEasting[which(veg$plotID == sitePlots[iSite])],
+northing=veg$adjNorthing[which(veg)],
+check.size = FALSE, savepath=wd)
+library(neonUtilities)
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting=veg$adjEasting[which(veg$plotID == sitePlots[iSite])],
+northing=veg$adjNorthing[which(veg)],
+check.size = FALSE, savepath=wd)
+sitePlots[iSite]
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting=  veg$adjEasting[which(veg$plotID == sitePlots[iSite])],
+northing=veg$adjNorthing[which(veg$plotID == sitePlots[iSite])],
+check.size = FALSE, savepath=wd)
+c(1: length(sitePlots)
+)
+for (iSite in c(1: length(sitePlots))) {
+byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2021",
+easting=  veg$adjEasting[which(veg$plotID == sitePlots[iSite])],
+northing=veg$adjNorthing[which(veg$plotID == sitePlots[iSite])],
+check.size = FALSE, savepath=wd)
+}
+extent(chm)[1]
+debugSource("F:/NEON/Tutorials/VegStrCHMR/aop_merge_raster_functions.R")
+getDataPaths("DP3.30015.001")
+getDataPaths <- function(dpID) {
+match = tolower(lookupTable$dpID) == tolower(dpID)
+dataPaths = lookupTable[match, path]
+return(dataPaths)
+}
+getDataPaths("DP3.30015.001")
+debugSource("F:/NEON/Tutorials/VegStrCHMR/aop_merge_raster_functions.R")
