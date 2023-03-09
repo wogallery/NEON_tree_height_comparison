@@ -96,6 +96,24 @@ xLab = "Lidar Canopy Height Model (m)"
 yLab = "Ground Measured Canopy Height (m)"
 
 ## ----veglist, results="hide"-----------------------------------------------------------------------------
+# if(exists("veglist")== FALSE){
+#   ## Check if the product data file has already been downloaded into data_path
+#   data_path = file.path(data_path_root,veg_dpID,"neon-aop-products",year,
+#                         "FullSite",domain,fullSite,"L1","veg_str")
+#   if (file.exists(data_path)) {
+#     zip_file = list.files(path = data_path, pattern = '*.zip', recursive = TRUE)
+#     if (is.na(zip_file[1])) {
+#       ##download the data to data_path
+#       zipsByProduct(dpID=veg_dpID, site=site, startdate=startdate, enddate=enddate, package="basic",
+#                     release="current", timeIndex="all", tabl="all", check.size=FALSE,
+#                     savepath=data_path, load=TRUE)
+#     }
+#     zip_file = list.files(path = data_path, pattern = '*.zip', recursive = TRUE, full.names = TRUE)
+#     veglist <- stackByTable(filepath= dirname(zip_file),
+#                         savepath="./data", folder=TRUE, nCores=nCores,
+#                         saveUnzippedFiles=TRUE)
+#   }
+# }
 
 if(!exists("veglist")) {
   veglist<- loadByProduct(dpID="veg_dpID",
@@ -106,19 +124,10 @@ if(!exists("veglist")) {
                          nCores = nCores,
                          check.size = FALSE)
 }
-## View the variables files to figure out which data table the spatial data are contained in
-View(veglist$variables_10098) 
-
-## Spatial data (decimalLatitude and decimalLongitude, etc) are in the vst_perplotperyear table
-View(veglist$vst_perplotperyear)
-
-## Data fields for stemDistance and stemAzimuth contain the distance and azimuth from a pointID to a specific stem
-View(veglist$vst_mappingandtagging)
 
 ## ----vegmap, results="hide"------------------------------------------------------------------------------
 if(exists("vegmap") == FALSE)
 {
-## Use getLocTOS to calculate precise protocol-specific locations for each sampling effort
   vegmap <- getLocTOS(veglist$vst_mappingandtagging,
                       "vst_mappingandtagging")
 }
@@ -126,9 +135,6 @@ if(exists("vegmap") == FALSE)
 ## ----veg_merge-------------------------------------------------------------------------------------------
 if(exists("veg") == FALSE)
 {
-## Merge the mapped locations of individuals (the vst_mappingandtagging table) with the annual measurements of height, 
-## diameter, etc. (the vst_apparentindividual table)
-
   veg <- merge(veglist$vst_apparentindividual, vegmap,
                by=c("individualID","namedLocation",
                     "domainID","siteID","plotID"))
@@ -141,6 +147,93 @@ if(exists("vegsub") == FALSE)
                        veg$growthForm=="multi-bole tree"  |
                        veg$growthForm=="small tree"),]
 }
+
+## filter by desired variables. variables obtained from colnames(veg)
+## uncomment to add a variable
+desiredVariables = c(
+  "individualID",
+  "namedLocation",
+  # "domainID",
+  # "siteID",
+  "plotID",
+  # "uid.x",
+  "date.x",
+  # "eventID.x",
+  # "tempStemID",
+  # "tagStatus",
+  "growthForm",
+  "plantStatus",
+  "stemDiameter",
+  "measurementHeight",
+  "changedMeasurementLocation",
+  "height",
+  # "baseCrownHeight",
+  # "breakHeight",
+  # "breakDiameter",
+  "maxCrownDiameter",
+  "ninetyCrownDiameter",
+  "canopyPosition",
+  # "shape",
+  "basalStemDiameter",
+  # "basalStemDiameterMsrmntHeight" ,
+  # "maxBaseCrownDiameter",
+  # "ninetyBaseCrownDiameter",
+  # "dendrometerInstallationDate",
+  # "initialGapMeasurementDate",
+  # "initialBandStemDiameter",
+  # "initialDendrometerGap",
+  # "dendrometerHeight",
+  # "dendrometerGap",
+  # "dendrometerCondition",
+  # "bandStemDiameter",
+  # "remarks.x",
+  # "recordedBy.x",
+  # "measuredBy.x",
+  # "dataQF.x",
+  # "publicationDate.x",
+  # "release.x",
+  # "uid.y",
+  # "date.y",
+  # "eventID.y",
+  "subplotID",
+  # "nestedSubplotID",
+  # "pointID",
+  # "stemDistance",
+  # "stemAzimuth",
+  # "recordType",
+  # "supportingStemIndividualID",
+  # "previouslyTaggedAs",
+  # "samplingProtocolVersion",
+  "taxonID",
+  "scientificName",
+  # "taxonRank",
+  # "identificationReferences",
+  # "morphospeciesID",
+  # "morphospeciesIDRemarks",
+  # "identificationQualifier",
+  # "remarks.y",
+  # "measuredBy.y",
+  # "recordedBy.y",
+  # "dataQF.y",
+  # "publicationDate.y",
+  # "release.y",
+  "utmZone",
+  "adjNorthing",
+  "adjEasting",
+  "adjCoordinateUncertainty",
+  "adjDecimalLatitude",
+  "adjDecimalLongitude",
+  "adjElevation",
+  "adjElevationUncertainty")
+
+veg = veg[desiredVariables]
+
+## get a list of the tree names at this site
+# treeNames = sort(unique(veglist$vst_mappingandtagging$scientificName))
+
+## ----get an array of the plotID's, sorted
+sitePlots = sort(unique(veg$plotID))
+nSP = length(sitePlots)
 
 ## ----Plot tree locations and diameters ------------------------------------------------------------
 # png(paste0(resultsDir, fullSite, '_tree_locations.png'), width = 800, height = 600)
@@ -158,16 +251,6 @@ if(exists("vegsub") == FALSE)
 #         inches=.1, add = T)
 # dev.off()
 
-
-## get a list of the tree names at this site
-# treeNames = sort(unique(veglist$vst_mappingandtagging$scientificName))
-
-## ----get an array of the plotID's, sorted
-sitePlots = sort(unique(veg$plotID))
-nSP = length(sitePlots)
-
-
-
 ## ----get-chm, results="hide"-----------------------------------------------------------------------------
 chm <- raster(CHM_file)
 png(filename = paste0(resultsDir, fullSite, "_CHM.png"), width = 800, height = 800)
@@ -178,45 +261,9 @@ plot(chm,
      main = c(fullSite, 'Canopy Height'))
 
 dev.off()
-## Download the CHM tile corresponding to plot HEAL_033 and then load the tile into the environment
-
-byTileAOP(dpID="DP3.30015.001", site="HEAL", year="2019", 
-          easting=veg$adjEasting[which(veg$plotID=="HEAL_047")], 
-          northing=veg$adjNorthing[which(veg$plotID=="HEAL_047")],
-          check.size = FALSE, savepath=wd,
-          token = NEON_TOKEN)
-
-chm <- raster(paste0(wd, "/DP3.30015.001/neon-aop-products/2019/FullSite/D19/2019_HEAL_3/L3/DiscreteLidar/CanopyHeightModelGtif/NEON_D19_HEAL_DP3_390000_7084000_CHM.tif"))
-
-## Download the DTM and DSM tiles corresponding to plot HEAL_033 and then load the DTM and DSM into the environment
-
-byTileAOP(dpID="DP3.30024.001", site="HEAL", year="2019", 
-          easting=veg$adjEasting[which(veg$plotID=="HEAL_047")], 
-          northing=veg$adjNorthing[which(veg$plotID=="HEAL_047")],
-          check.size = FALSE, savepath=wd,
-          token = NEON_TOKEN)
-
-dtm <- raster(paste0(wd, "/DP3.30024.001/neon-aop-products/2019/FullSite/D19/2019_HEAL_3/L3/DiscreteLidar/DTMGtif/NEON_D19_HEAL_DP3_390000_7084000_DTM.tif"))
-
-dsm <- raster(paste0(wd, "/DP3.30024.001/neon-aop-products/2019/FullSite/D19/2019_HEAL_3/L3/DiscreteLidar/DSMGtif/NEON_D19_HEAL_DP3_390000_7084000_DSM.tif"))
-
-## ----plot-chm--------------------------------------------------------------------------------------------
-
-## Plot the CHM, DTM and DSM tiles
-
-plot(chm, col=topo.colors(5))
-
-plot(dtm, col=terrain.colors(25))
-
-plot(dsm, col=hcl.colors(20))
 
 ## ----vegsub----------------------------------------------------------------------------------------------
 ##
-
-## View the extent of chm and subset the vegetation structure table to only those individuals that fall within the extent of the CHM tile
-
-extent(chm)
-
 vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
                       veg$adjEasting <= extent(chm)[2] &
                       veg$adjNorthing >= extent(chm)[3] &
@@ -224,16 +271,12 @@ vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
 write.csv(veg, paste0(resultsDir, paste0(fullSite, '_vegsub.csv')))
 
 ## ----buffer-chm------------------------------------------------------------------------------------------
-## Extract the CHM value that matches the coordinates of each mapped plant. Include a buffer equal to the uncertainty 
-## in the plant's location, and extract the highest CHM value within the buffer. 
-
 bufferCHM <- extract(chm,
                      cbind(vegsub$adjEasting,
                            vegsub$adjNorthing),
                      buffer=vegsub$adjCoordinateUncertainty,
                      fun=max)
 
-## ----scatterplot-buffer-chm------------------------------------------------------------------------------
 ## Limit the plot to x/y extent of the [trees, CHM]
 pLim = c(0.0, ##min(min(vegsub$height, na.rm = TRUE), min(bufferCHM, na.rm = TRUE)),
          max(max(vegsub$height, na.rm = TRUE), max(bufferCHM, na.rm = TRUE)))
@@ -247,53 +290,24 @@ lines(c(0,50), c(0,50), col="black", lwd = 3)
 dev.off()
 
 ## ----corr-buffer-----------------------------------------------------------------------------------------
-## Strength of correlation between the ground and lidar measurements (low correlation)
-
 print(paste0("Correlation, all trees: ", cor(bufferCHM, vegsub$height, use="complete")))
 
 ## ----round-x-y-------------------------------------------------------------------------------------------
-
-## Filtering understory from dataset (map-centric vs. tree-centric)
-## Approach #1: Use a map-centric approach to filter out understory: select a pixel size (e.g., 10m) and aggregate both 
-## the vegetation structure data and the CHM  to find the tallest point in each pixel
-
-## Use floor() instead of round() so each tree ends up in the pixel with the same numbering as the raster pixels 
 easting10 <- 10*floor(vegsub$adjEasting/10)
 northing10 <- 10*floor(vegsub$adjNorthing/10)
 vegsub <- cbind(vegsub, easting10, northing10)
 
-
 ## ----vegbin----------------------------------------------------------------------------------------------
-## Use the stats package version of the aggregate() function to get the tallest tree in each 10m bin
-
 vegbin <- stats::aggregate(vegsub, by=list(vegsub$easting10, vegsub$northing10), FUN=max)
 
-# symbols(vegbin$adjEasting[which(vegbin$plotID=="HEAL_033")], 
-#         vegbin$adjNorthing[which(vegbin$plotID=="HEAL_033")], 
-#         circles=vegbin$stemDiameter[which(vegbin$plotID=="HEAL_033")]/100/2, 
-#         inches=F, xlab="Easting", ylab="Northing")
-
-##
 ## ----CHM-10----------------------------------------------------------------------------------------------
-
-## Use the raster package version of the aggregate() function to create a 10m resolution version of the CHM to match
 CHM10 <- raster::aggregate(chm, fact=10, fun=max)
-plot(CHM10, col=topo.colors(5))
-
 
 ## ----adj-tree-coord--------------------------------------------------------------------------------------
-
-## Use the extract() function again to get the values from each pixel (uncertainty buffers no longer needed); 
-## add 5 to each tree coordinate to make sure it's in the correct pixel since grids are numbered by the corners
-
 vegbin$easting10 <- vegbin$easting10+5
 vegbin$northing10 <- vegbin$northing10+5
-binCHM <- raster::extract(CHM10, cbind(vegbin$easting10, 
+binCHM <- extract(CHM10, cbind(vegbin$easting10,
                                vegbin$northing10))
-plot(binCHM~vegbin$height, pch=20, 
-     xlab="VST canopy height", ylab="Lidar canopy height model")
-lines(c(0,50), c(0,50), col="grey")
-
 
 png(paste0(resultsDir, fullSite, "_low_res_chm.png"),  width = 800, height = 600)
 pLim = c(min(min(vegbin$height, na.rm = TRUE), min(binCHM, na.rm = TRUE)),
@@ -308,22 +322,12 @@ lines(c(0,50), c(0,50),col="black", lwd = 3)
 dev.off()
 
 ## ----cor-2-----------------------------------------------------------------------------------------------
-## Improved correlation between field measurements and CHM, but a lot of data has been lost  going to a lower resolution
-
 print(paste0("After low res:", cor(binCHM, vegbin$height, use="complete")))
 
 ## ----vegsub-2--------------------------------------------------------------------------------------------
-## Approach #2: Use trees as the starting point instead of map area. Start by sorting the veg structure data by height
-
 vegsub <- vegsub[order(vegsub$height, decreasing=T),]
 
-
 ## ----vegfil----------------------------------------------------------------------------------------------
-
-# For each tree, estimate which nearby trees might be beneath its canopy and discard those points:
-## 1. Calculate the distance of each tree from the target tree
-## 2. Pick a reasonable estimate for canopy size, and discard shorter trees within that radius (e.g., 0.3 times height)
-## 3. Iterate over all trees
 vegfil <- vegsub
 for(i in 1:nrow(vegsub)) {
   if(is.na(vegfil$height[i]))
@@ -336,13 +340,9 @@ for(i in 1:nrow(vegsub)) {
 
 vegfil <- vegfil[which(!is.na(vegfil$height)),]
 
+## ----filter-chm by max value--------------------------------------------------------------
 
-## ----filter-chm------------------------------------------------------------------------------------------
-
-## Now extract the raster values, as above, increasing the buffer size to better account for the uncertainty 
-## in the lidar data as well as the uncertainty in the ground locations
-
-filterCHM <- raster::extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
+filterCHM <- extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
                      buffer=vegfil$adjCoordinateUncertainty+1, fun=max)
 
 png(filename = paste0(resultsDir, fullSite,"_alltrees.png"), width = 800, height = 600)
@@ -356,19 +356,12 @@ plot(bufferCHM~vegsub$height, pch=20,
 lines(c(0,50), c(0,50), col="black", lwd = 3)
 dev.off()
 
-## Improved correlation between field measurements and CHM, filtering out most understory trees without losing 
-## as many overstory trees
 print(paste0("Filtered by max CHM ???:", cor(filterCHM,vegfil$height)))
-
 
 ## -------Live-trees------------------------------------------------------------------------------------------
 
-## The plantStatus field in the veg structure data indicates whether a plant is dead, broken, or otherwise damaged.
-## It's possible but unlikely that dead stem is tallest structure, also less likely to get a good lidar return.
-## Exclude trees that aren't alive
-
 vegfil <- vegfil[which(vegfil$plantStatus=="Live"),]
-filterCHM <- raster::extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
+filterCHM <- extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
                      buffer=vegfil$adjCoordinateUncertainty+1, fun=max)
 
 png(filename = paste0(resultsDir, fullSite,"_livingtrees.png"), width = 800, height = 600)
