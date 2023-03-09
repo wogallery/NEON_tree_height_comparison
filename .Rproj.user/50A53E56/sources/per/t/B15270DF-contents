@@ -237,14 +237,14 @@ nSP = length(sitePlots)
 
 ## ----Plot tree locations and diameters ------------------------------------------------------------
 # png(paste0(resultsDir, fullSite, '_tree_locations.png'), width = 800, height = 600)
-# 
+#
 # symbols(veg$adjEasting,
 #         veg$adjNorthing,
 #         circles=veg$adjCoordinateUncertainty, asp = 1,
 #         xlab="Easting", ylab="Northing",
 #         main = c(fullSite, 'Tree Locations and Diameters'),
 #         inches=0.1, fg="lightblue")
-# 
+#
 # symbols(veg$adjEasting,
 #         veg$adjNorthing,
 #         circles=veg$stemDiameter/100/2, asp = 1,

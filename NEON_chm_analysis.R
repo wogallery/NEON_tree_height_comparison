@@ -56,20 +56,20 @@ enddate   = paste0(year, '-12')
 resultsDir = './results/'
 nCores = 6
 
-veg_dpid = "DP1.10098.001"
-chm_dpid = "DP3.30015.001"
-RGB_dpid = "DP3.30010.001"
+veg_dpID = "DP1.10098.001"
+chm_dpID = "DP3.30015.001"
+RGB_dpID = "DP3.30010.001"
 
 # Note: do not end directory names with a "/" when used in file.path()
 data_path_root = "F:/NEON/data"
 
-CHMdataRoot  = paste0("F:/NEON/data/",chm_dpid,"/neon-aop-products/",year,"/FullSite/",domain,"/",fullSite,"/L3")
-RGBdataRoot  = paste0("F:/NEON/data/",RGB_dpid,"/neon-aop-products/",year,"/FullSite/",domain,"/",fullSite,"/L3")
+CHMdataRoot  = paste0("F:/NEON/data/",chm_dpID,"/neon-aop-products/",year,"/FullSite/",domain,"/",fullSite,"/L3")
+RGBdataRoot  = paste0("F:/NEON/data/",RGB_dpID,"/neon-aop-products/",year,"/FullSite/",domain,"/",fullSite,"/L3")
 
 CHM_file  = paste0(CHMdataRoot, "/DiscreteLidar/CanopyHeightModelGtifMosaic/", fullSite, "_CHM_mosaic.tif")
 RGB_file  = paste0(RGBdataRoot, "/Camera/Mosaic/", fullSite, "_RGB_mosaic.tif")
 
-## Above is dominated by spruce treed (see book ("Tree Line")
+## ABoVE is dominated by spruce trees (see book ("Tree Line")
 whiteSpruce = "Picea glauca (Moench) Voss"
 blackSpruce = "Picea mariana (Mill.) Britton, Sterns & Poggenb."
 spruceTrees = factor(c(whiteSpruce, blackSpruce))
@@ -98,13 +98,13 @@ yLab = "Ground Measured Canopy Height (m)"
 ## ----veglist, results="hide"-----------------------------------------------------------------------------
 # if(exists("veglist")== FALSE){
 #   ## Check if the product data file has already been downloaded into data_path
-#   data_path = file.path(data_path_root,veg_dpid,"neon-aop-products",year,
+#   data_path = file.path(data_path_root,veg_dpID,"neon-aop-products",year,
 #                         "FullSite",domain,fullSite,"L1","veg_str")
 #   if (file.exists(data_path)) {
 #     zip_file = list.files(path = data_path, pattern = '*.zip', recursive = TRUE)
 #     if (is.na(zip_file[1])) {
 #       ##download the data to data_path
-#       zipsByProduct(dpID=veg_dpid, site=site, startdate=startdate, enddate=enddate, package="basic",
+#       zipsByProduct(dpID=veg_dpID, site=site, startdate=startdate, enddate=enddate, package="basic",
 #                     release="current", timeIndex="all", tabl="all", check.size=FALSE,
 #                     savepath=data_path, load=TRUE)
 #     }
@@ -116,7 +116,7 @@ yLab = "Ground Measured Canopy Height (m)"
 # }
 
 if(!exists("veglist")) {
-  veglist<- loadByProduct(dpID="DP1.10098.001",
+  veglist<- loadByProduct(dpID="veg_dpID",
                          site=site,
                          startdate=startdate,
                          enddate=enddate,
@@ -236,20 +236,20 @@ sitePlots = sort(unique(veg$plotID))
 nSP = length(sitePlots)
 
 ## ----Plot tree locations and diameters ------------------------------------------------------------
-png(paste0(resultsDir, fullSite, '_tree_locations.png'), width = 800, height = 600)
-
-symbols(veg$adjEasting,
-        veg$adjNorthing,
-        circles=veg$adjCoordinateUncertainty, asp = 1,
-        xlab="Easting", ylab="Northing",
-        main = c(fullSite, 'Tree Locations and Diameters'),
-        inches=0.1, fg="lightblue")
-
-symbols(veg$adjEasting,
-        veg$adjNorthing,
-        circles=veg$stemDiameter/100/2, asp = 1,
-        inches=.1, add = T)
-dev.off()
+# png(paste0(resultsDir, fullSite, '_tree_locations.png'), width = 800, height = 600)
+#
+# symbols(veg$adjEasting,
+#         veg$adjNorthing,
+#         circles=veg$adjCoordinateUncertainty, asp = 1,
+#         xlab="Easting", ylab="Northing",
+#         main = c(fullSite, 'Tree Locations and Diameters'),
+#         inches=0.1, fg="lightblue")
+#
+# symbols(veg$adjEasting,
+#         veg$adjNorthing,
+#         circles=veg$stemDiameter/100/2, asp = 1,
+#         inches=.1, add = T)
+# dev.off()
 
 ## ----get-chm, results="hide"-----------------------------------------------------------------------------
 chm <- raster(CHM_file)
@@ -277,7 +277,8 @@ bufferCHM <- extract(chm,
                      buffer=vegsub$adjCoordinateUncertainty,
                      fun=max)
 
-pLim = c(min(min(vegsub$height, na.rm = TRUE), min(bufferCHM, na.rm = TRUE)),
+## Limit the plot to x/y extent of the [trees, CHM]
+pLim = c(0.0, ##min(min(vegsub$height, na.rm = TRUE), min(bufferCHM, na.rm = TRUE)),
          max(max(vegsub$height, na.rm = TRUE), max(bufferCHM, na.rm = TRUE)))
 
 png(filename = paste0(resultsDir, fullSite,"_alltrees.png"), width = 800, height = 600)
@@ -351,7 +352,7 @@ pLim = c(min(min(vegsub$height, na.rm = TRUE), min(bufferCHM, na.rm = TRUE)),
 plot(bufferCHM~vegsub$height, pch=20,
      xlim = pLim, ylim = pLim,
      xlab = xLab, ylab = yLab,
-     main = c(fullSite, 'max'))
+     main = c(fullSite, 'All Trees'))
 lines(c(0,50), c(0,50), col="black", lwd = 3)
 dev.off()
 
@@ -366,7 +367,7 @@ filterCHM <- extract(chm, cbind(vegfil$adjEasting, vegfil$adjNorthing),
 png(filename = paste0(resultsDir, fullSite,"_livingtrees.png"), width = 800, height = 600)
 
 plot.window(xlim = pLim, ylim = pLim)
-plot(filterCHM~vegfil$height, pch=20,
+plot(filterCHM~vegfil$height, pch=20, #bufferCHM~vegsub$height
      xlim = pLim, ylim = pLim,
      xlab = xLab, ylab = yLab,
      main = c(fullSite, "Living Trees"))
@@ -382,15 +383,20 @@ rgb = brick(RGB_file)
 png(paste0(resultsDir, fullSite, "_tree_locations.png"),
     width = 1000, height = 600, unit = 'px')
 
-ext = extent(c(min(veg$adjEasting-20,  na.rm = TRUE), max(veg$adjEasting+20,  na.rm = TRUE),
-               min(veg$adjNorthing-20, na.rm = TRUE), max(veg$adjNorthing+20, na.rm = TRUE)))
+ext_mgn = 40  ## extra margin so all the circles are shown completely
+ext = extent(c(min(veg$adjEasting-ext_mgn,  na.rm = TRUE), max(veg$adjEasting+ext_mgn,  na.rm = TRUE),
+               min(veg$adjNorthing-ext_mgn, na.rm = TRUE), max(veg$adjNorthing+ext_mgn, na.rm = TRUE)))
 plotRGB(rgb,
         ext = ext,
         xlab = "UTM X (m)", ylab = "UTM Y (m)",
         main = c(fullSite, "Tree Centers in Red"),
-        axes = TRUE, margins = TRUE, asp = TRUE)
-## plot the RGB image, overlay with the tree circles
-## limit the extent to the area of veg
+        axes = FALSE, margins = TRUE, asp = 1)
+
+## TODO: figure out how to properly place the axes on the plot
+axis(1)
+axis(2)
+axis(3, labels = FALSE)
+axis(4, labels = FALSE)
 
 symbols(vegfil$adjEasting,
         vegfil$adjNorthing,
