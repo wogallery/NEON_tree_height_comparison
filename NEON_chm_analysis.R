@@ -42,11 +42,12 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
   ## Create the fully-qualified file names for the CHM and the RGB mosaic files
   CHM_path_root = paste(sep = '/',
-                    create_NEON_datafile_path(chm_dpID, site = site, year = year, domain = domain, visit = visit, root_path = data_root_path))
-  CHM_file= paste0(CHM_path_root, "/DiscreteLidar/CanopyHeightModelGtifMosaic/", fullSite, "_CHM_mosaic.tif")
+                        create_NEON_datafile_path(chm_dpID, site = site, year = year, domain = domain, visit = visit, root_path = data_root_path))
+  CHM_file   = paste0(CHM_path_root, "/DiscreteLidar/CanopyHeightModelGtifMosaic/", fullSite, "_CHM_mosaic.tif")
+  CHM10_file = paste0(CHM_path_root, "/DiscreteLidar/CanopyHeightModelGtifMosaic/", fullSite, "_CHM_mosaic_10.tif")
 
   RGB_path_root = paste(sep = '/',
-                    create_NEON_datafile_path(RGB_dpID, site = site, year = year, domain = domain, visit = visit, root_path = data_root_path))
+                        create_NEON_datafile_path(RGB_dpID, site = site, year = year, domain = domain, visit = visit, root_path = data_root_path))
   RGB_file = paste0(RGB_path_root, "/Camera/Mosaic/", fullSite, "_RGB_mosaic.tif")
 
   ## ABoVE is dominated by spruce trees (see book ("Tree Line") (not used)
@@ -78,21 +79,21 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
   ## Get the veglist
   if(!exists("veglist")) {
     veglist <- loadByProduct(dpID=veg_dpID,
-                            site=site,
-                            startdate=startdate,
-                            enddate=enddate,
-                            package="basic",
-                            nCores = nCores,
-                            check.size = FALSE)
+                             site=site,
+                             startdate=startdate,
+                             enddate=enddate,
+                             package="basic",
+                             nCores = nCores,
+                             check.size = FALSE)
   }
   ## View the variables files to figure out which data table the spatial data are contained in
-  View(veglist$variables_10098)
+  ## View(veglist$variables_10098)
 
   ## Spatial data (decimalLatitude and decimalLongitude, etc) are in the vst_perplotperyear table
-  View(veglist$vst_perplotperyear)
+  ## View(veglist$vst_perplotperyear)
 
   ## Data fields for stemDistance and stemAzimuth contain the distance and azimuth from a pointID to a specific stem
-  View(veglist$vst_mappingandtagging)
+  ## View(veglist$vst_mappingandtagging)
 
   ## ----vegmap------------------------------------------------------------------------------
   if(exists("vegmap") == FALSE)
@@ -238,7 +239,6 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
   ##
 
   ## View the extent of chm and subset the vegetation structure table to only those individuals that fall within the extent of the CHM tile
-
   extent(chm)
 
   vegsub <- veg[which(veg$adjEasting >= extent(chm)[1] &
@@ -250,7 +250,6 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
   ## ----buffer-chm------------------------------------------------------------------------------------------
   ## Extract the CHM value that matches the coordinates of each mapped plant. Include a buffer equal to the uncertainty
   ## in the plant's location, and extract the highest CHM value within the buffer.
-
   bufferCHM <- extract(chm,
                        cbind(vegsub$adjEasting,
                              vegsub$adjNorthing),
@@ -259,20 +258,18 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
   ## ----scatterplot-buffer-chm------------------------------------------------------------------------------
   ## Limit the plot to x/y extent of the [trees, CHM]
-  pLim = c(0.0, ##min(min(vegsub$height, na.rm = TRUE), min(bufferCHM, na.rm = TRUE)),
-           max(max(vegsub$height, na.rm = TRUE), max(bufferCHM, na.rm = TRUE)))
+  pLim = c(0.0, max(max(vegsub$height, na.rm = TRUE), max(bufferCHM, na.rm = TRUE)))
 
-  png(filename = paste0(resultsDir, fullSite,"_alltrees.png"), width = 800, height = 600)
+  #  png(filename = paste0(resultsDir, fullSite,"_allveg.png"), width = 800, height = 600)
   plot(bufferCHM~vegsub$height, pch=20,
        xlim = pLim, ylim = pLim,
        xlab = xLab, ylab = yLab,
-       main = c(fullSite, 'All Trees'))
+       main = c(fullSite, 'All Vegetation'))
   lines(c(0,50), c(0,50), col="black", lwd = 3)
   dev.off()
 
   ## ----corr-buffer-----------------------------------------------------------------------------------------
   ## Strength of correlation between the ground and lidar measurements (low correlation)
-
   print(paste0("Correlation, all trees: ", cor(bufferCHM, vegsub$height, use="complete")))
 
   ## ----round-x-y-------------------------------------------------------------------------------------------
@@ -288,7 +285,6 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
   ## ----vegbin----------------------------------------------------------------------------------------------
   ## Use the stats package version of the aggregate() function to get the tallest tree in each 10m bin
-
   vegbin <- stats::aggregate(vegsub, by=list(vegsub$easting10, vegsub$northing10), FUN=max)
 
   # symbols(vegbin$adjEasting[which(vegbin$plotID=="HEAL_033")],
@@ -300,9 +296,12 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
   ## ----CHM-10----------------------------------------------------------------------------------------------
 
   ## Use the raster package version of the aggregate() function to create a 10m resolution version of the CHM to match
-  CHM10 <- raster::aggregate(chm, fact=10, fun=max)
-  plot(CHM10, col=topo.colors(5))
-
+  if(file.exists(CHM10_file) == FALSE) {
+    print("Creating 10 m CHM file, may take some time")
+    CHM10 <- raster::aggregate(chm, fact=10, fun=max)
+    writeRaster(CHM10, CHM10_file)
+  }
+  CHM10 <- raster(CHM10_file)
 
   ## ----adj-tree-coord--------------------------------------------------------------------------------------
 
@@ -354,8 +353,6 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
   vegfil <- vegfil[which(!is.na(vegfil$height)),]
 
   ## ----filter-chm by max value--------------------------------------------------------------
-
-
   ## Now extract the raster values, as above, increasing the buffer size to better account for the uncertainty
   ## in the lidar data as well as the uncertainty in the ground locations
 
@@ -363,10 +360,9 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
                                buffer=vegfil$adjCoordinateUncertainty+1, fun=max)
 
   png(filename = paste0(resultsDir, fullSite,"_alltrees.png"), width = 800, height = 600)
-  pLim = c(min(min(vegsub$height, na.rm = TRUE), min(bufferCHM, na.rm = TRUE)),
-           max(max(vegsub$height, na.rm = TRUE), max(bufferCHM, na.rm = TRUE)))
+  pLim = c(0, max(max(vegsub$height, na.rm = TRUE), max(bufferCHM, na.rm = TRUE)))
 
-  plot(bufferCHM~vegsub$height, pch=20,
+  plot(filterCHM~vegfil$height, pch=20,
        xlim = pLim, ylim = pLim,
        xlab = xLab, ylab = yLab,
        main = c(fullSite, 'All Trees'))
@@ -399,6 +395,8 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
   print(paste0("Live trees: ", cor(filterCHM,vegfil$height)))
 
+  write.csv(vegfil, paste0(resultsDir, paste0(fullSite,'_vegfil.csv')))
+
   ## plot the RGB image, overlay with the tree circles and add the plot boxes
   ## limit the extent to the area of veg
   rgb = brick(RGB_file)
@@ -428,7 +426,6 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
           add = TRUE)
   dev.off()
 
-  write.csv(veg, paste0(resultsDir, paste0(fullSite,'_vegfil.csv')))
 
   ## plot the outlines of the NEON field sampling plots.
   ## read in the shape file with the field sampling boundaries
@@ -439,6 +436,7 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
   ## extract the field sampling boundary for the desired site
   ii = which(aop_shp_UTM@data$siteID == site)
+  ## flt_bndry: box including the complete flight boundary
   flt_bndry = aop_shp_UTM@polygons[[ii]]@Polygons[[1]]@coords
 
 }
