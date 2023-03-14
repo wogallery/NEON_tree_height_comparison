@@ -395,7 +395,11 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
   print(paste0("Live trees: ", cor(filterCHM,vegfil$height)))
 
+  ## Write the data to a csv file
+  ## TODO: insert the CHMheight into the vegfil dataframe
   write.csv(vegfil, paste0(resultsDir, paste0(fullSite,'_vegfil.csv')))
+  CHMheightStr = list(sprintf("%0.5f",filterCHM ))
+  write.csv(CHMheightStr, paste0(resultsDir, paste0(fullSite,'_CHMheight.csv')))
 
   ## plot the RGB image, overlay with the tree circles and add the plot boxes
   ## limit the extent to the area of veg
@@ -426,23 +430,22 @@ NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
           add = TRUE)
   dev.off()
 
-
-  ## plot the outlines of the NEON field sampling plots.
-  ## read in the shape file with the field sampling boundaries
-  aop_shp = readOGR("F:/NEON/Site_data/AOP_flightboxesAllSites.shp")
-
-  ## convert projection from lat/lon to UTM (CHM is in UTM)
-  aop_shp_UTM = spTransform(aop_shp, crs(chm))
-
-  ## extract the field sampling boundary for the desired site
-  ii = which(aop_shp_UTM@data$siteID == site)
-  ## flt_bndry: box including the complete flight boundary
-  flt_bndry = aop_shp_UTM@polygons[[ii]]@Polygons[[1]]@coords
+  # ## plot the outlines of the NEON field sampling plots.
+  # ## read in the shape file with the field sampling boundaries
+  # aop_shp = readOGR("F:/NEON/Site_data/AOP_flightboxesAllSites.shp")
+  #
+  # ## convert projection from lat/lon to UTM (CHM is in UTM)
+  # aop_shp_UTM = spTransform(aop_shp, crs(chm))
+  #
+  # ## extract the field sampling boundary for the desired site
+  # ii = which(aop_shp_UTM@data$siteID == site)
+  # ## flt_bndry: box including the complete flight boundary
+  # flt_bndry = aop_shp_UTM@polygons[[ii]]@Polygons[[1]]@coords
 
 }
 #
-# NEON_chm_analysis(
-#   site = 'DEJU',
-#   year = '2021',
-#   domain = 'D19',
-#   visit = '4')
+NEON_chm_analysis(
+  site = 'BONA',
+  year = '2021',
+  domain = 'D19',
+  visit = '4')
