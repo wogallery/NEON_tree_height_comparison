@@ -1,9 +1,10 @@
-site     = 'DEJU'
+site     = 'BONA'
 year     = '2021'
 domain   = 'D19'
 visit    = '4'
 wd       = "F:/NEON/Tutorials/R/VegStrCHMR"
 
+screen = FALSE
 ## NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
 
 ## ----Install_packages, eval=FALSE------------------------------------------------------------------------
@@ -61,20 +62,6 @@ RGB_file = paste0(RGB_path_root, "/Camera/Mosaic/", fullSite, "_RGB_mosaic.tif")
 whiteSpruce = "Picea glauca (Moench) Voss"
 blackSpruce = "Picea mariana (Mill.) Britton, Sterns & Poggenb."
 spruceTrees = factor(c(whiteSpruce, blackSpruce))
-
-## list of scientific names found in HEAL
-species = factor(c('species',
-                   "Alnus viridis (Chaix) DC",
-                   "Betula glandulosa Michx.",
-                   "Betula occidentalis Hook.",
-                   "Ledum palustre L.",
-                   "Picea glauca (Moench) Voss", #white spruce
-                   "Picea mariana (Mill.) Britton, Sterns & Poggenb.", # black spruce
-                   "Salix bebbiana Sarg.",
-                   "Salix glauca L.",
-                   "Salix myrtillifolia Andersson",
-                   "Salix pulchra Cham.",
-                   "Vaccinium uliginosum L."))
 
 ## x and y plot labels
 xLab = "Ground Measured Canopy Height (m)"
@@ -199,86 +186,77 @@ desiredVariables = c(
 
 veg = veg[desiredVariables]
 
-## get a list of the tree names at this site
-# treeNames = sort(unique(veglist$vst_mappingandtagging$scientificName))
-
-## ----get an array of the plotID's, sorted
-sitePlots = sort(unique(veg$plotID))
-nSP = length(sitePlots)
-
 ## ----get-chm, results="hide"-----------------------------------------------------------------------------
-chm <- raster(CHM_file)
+CHM <- raster(CHM_file)
 png(filename = paste0(resultsDir, fullSite, "_CHM.png"), width = 800, height = 800)
-
-plot(chm,
-     col = topo.colors(5),
+plot(CHM,
+     col = topo.colors(20),
      xlab = "Easting (m)", ylab = "Northing (m)",
      main = c(fullSite, 'Canopy Height'))
-
 dev.off()
 
-## ----vegTrees----------------------------------------------------------------------------------------------
-##
-
+## ----Trees----------------------------------------------------------------------------------------------
 ## View the extent of chm and subset the vegetation structure table to
 ##  1. only those individuals that fall within the extent of the CHM mosaic,
-##  2. include only trees, not shrubs, and
+##  2. include only trees, not shrubs, 
 ##  3. trees are "Live", and
 ##  4. height is not NA and is >= 2.0 m
-vegTrees <- veg[which(veg$adjEasting >= extent(chm)[1] &
-                        veg$adjEasting <= extent(chm)[2] &
-                        veg$adjNorthing >= extent(chm)[3] &
-                        veg$adjNorthing <= extent(chm)[4] &
+Trees <- veg[which(veg$adjEasting >= extent(CHM)[1] &
+                        veg$adjEasting <= extent(CHM)[2] &
+                        veg$adjNorthing >= extent(CHM)[3] &
+                        veg$adjNorthing <= extent(CHM)[4] &
                         (veg$growthForm == "single bole tree" |
                            veg$growthForm == "multi-bole tree" |
                            veg$growthForm == "small tree") &
                         veg$plantStatus == "Live" &
                         !is.na(veg$height) &
                         veg$height >= 2.0), ]
+## Sort Trees by decreasing height (???)
+Trees = Trees[order(Trees$height, decreasing=T),]
 
-## Write vegTrees to a csv file for outside processing
-write.csv(vegTrees, paste0(resultsDir, paste0(fullSite, '_vegTrees.csv')))
-
-## ----buffer-chm------------------------------------------------------------------------------------------
+## ----buffer_1------------------------------------------------------------------------------------------
 ## Extract the CHM value that matches the coordinates of each mapped tree Include a buffer equal to the uncertainty
 ## in the plant's location, and extract the highest CHM value within the buffer.
-CHMtrees <- extract(chm,
-                     cbind(vegTrees$adjEasting,
-                           vegTrees$adjNorthing),
-                     buffer=vegTrees$adjCoordinateUncertainty,
+CHM_trees_hgt <- extract(CHM,
+                     cbind(Trees$adjEasting,
+                           Trees$adjNorthing),
+                     buffer=Trees$adjCoordinateUncertainty,
                      fun=max)
 
-## ----Scatterplot-tree heights------------------------------------------------------------------------------
-## Limit the plot to x/y extent of the [trees, CHM]
-pLim = c(0.0, max(max(vegTrees$height, na.rm = TRUE), max(CHMtrees, na.rm = TRUE)))
+fn_suffix = "_buffer_1"
+sub_title = "Trees: Buffer 1"
+plot_chm_hgt_vs_sampled_hgt(Trees$height, CHM_trees_hgt, 
+                            resultsDir, fullSite, fn_suffix, sub_title, screen = screen)
 
-png(filename = paste0(resultsDir, fullSite,"_alltrees.png"), width = 800, height = 600)
-plot(vegTrees$height~CHMtrees, pch=20,
-     xlim = pLim, ylim = pLim,
-     xlab = xLab, ylab = yLab,
-     main = c(fullSite, 'All Trees'))
+## Write Trees to a csv file for outside processing
+x = cbind(Trees, CHM_trees_hgt)
+write.csv(x, paste0(resultsDir, paste0(fullSite, fn_suffix,'.csv')))
 
-regress = lm(CHMtrees ~ 0 + vegTrees$height)
-lines(pLim, pLim*regress$coefficients, col="black", lwd = 3)
-dev.off()
 
-## ----Correlation:ground vs lidar heights-----------------------------------------------------------------------------------------
-## Strength of correlation between the ground and lidar measurements (low correlation)
-print(paste0("Correlation, all trees: ", cor(CHMtrees, vegTrees$height, use="complete")))
+## ----filter_2-expand buffer by 1 meter-------------------------------------------------------------
+## Now extract the raster values, as above, increasing the buffer size by 1 meter 
+## to better account for the uncertainty in the lidar data as well as the uncertainty in the ground locations
 
-## ----Round-x-y-------------------------------------------------------------------------------------------
+CHM_fil_2 <- raster::extract(CHM, cbind(Trees$adjEasting, Trees$adjNorthing),
+                             buffer=Trees$adjCoordinateUncertainty+1, fun=max)
+fn_suffix = "_buffer_2"
+sub_title = "Trees: Buffer 2"
+plot_chm_hgt_vs_sampled_hgt(Trees$height, CHM_fil_2, 
+                            resultsDir, fullSite, fn_suffix, sub_title , screen = screen)
+
+## ----vegTrees_fil_1----------------------------------------------------------------------------------------------
 ## Filtering understory from dataset (map-centric vs. tree-centric)
 ## Approach #1: Use a map-centric approach to filter out understory: select a pixel size (e.g., 10m) and aggregate both
 ## the vegetation structure data and the CHM  to find the tallest point in each pixel
 
 # ## Use floor() instead of round() so each tree ends up in the pixel with the same numbering as the raster pixels
-# easting10 <- 10*floor(vegTrees$adjEasting/10)
-# northing10 <- 10*floor(vegTrees$adjNorthing/10)
-# vegTrees <- cbind(vegTrees, easting10, northing10)
+# easting10 <- 10*floor(Trees$adjEasting/10)
+# northing10 <- 10*floor(Trees$adjNorthing/10)
+# Trees_fil_1 <- cbind(Trees, easting10, northing10)
 # 
-# ## ----vegTreesmax----------------------------------------------------------------------------------------------
+# ## ----vegTrees_fil_1----------------------------------------------------------------------------------------------
 # ## Use the stats package version of the aggregate() function to get the tallest tree in each 10m bin
-# vegTreesmax <- stats::aggregate(vegTrees, by=list(vegTrees$easting10, vegTrees$northing10), FUN=max)
+# Trees_fil_1 <- stats::aggregate(Trees_fil_1, by=list(Trees_fil_1$easting10, Trees_fil_1$northing10), FUN=max)
 # 
 # ## ----CHM-10----------------------------------------------------------------------------------------------
 # 
@@ -295,16 +273,16 @@ print(paste0("Correlation, all trees: ", cor(CHMtrees, vegTrees$height, use="com
 # ## Use the extract() function again to get the values from each pixel (uncertainty buffers no longer needed);
 # ## add 5 to each tree coordinate to make sure it's in the correct pixel since grids are numbered by the corners
 # 
-# vegTreesmax$easting10 <- vegTreesmax$easting10+5
-# vegTreesmax$northing10 <- vegTreesmax$northing10+5
-# binCHM <- raster::extract(CHM10, cbind(vegTreesmax$easting10,
-#                                        vegTreesmax$northing10))
+# vegTrees_fil_1$easting10 <- vegTrees_fil_1$easting10+5
+# vegTrees_fil_1$northing10 <- vegTrees_fil_1$northing10+5
+# binCHM <- raster::extract(CHM10, cbind(vegTrees_fil_1$easting10,
+#                                        vegTrees_fil_1$northing10))
 # 
 # png(paste0(resultsDir, fullSite, "_low_res_chm.png"),  width = 800, height = 600)
-# pLim = c(min(min(vegTreesmax$height, na.rm = TRUE), min(binCHM, na.rm = TRUE)),
-#          max(max(vegTreesmax$height, na.rm = TRUE), max(binCHM, na.rm = TRUE)))
+# pLim = c(min(min(vegTrees_fil_1$height, na.rm = TRUE), min(binCHM, na.rm = TRUE)),
+#          max(max(vegTrees_fil_1$height, na.rm = TRUE), max(binCHM, na.rm = TRUE)))
 # 
-# plot(binCHM~vegTreesmax$height, pch=20,
+# plot(binCHM~vegTrees_fil_1$height, pch=20,
 #      xlim = pLim, ylim = pLim,
 #      xlab = xLab, ylab = yLab,
 #      main = paste0(c(fullSite, "Low Res CHM")))
@@ -315,91 +293,73 @@ print(paste0("Correlation, all trees: ", cor(CHMtrees, vegTrees$height, use="com
 # ## ----cor-2-----------------------------------------------------------------------------------------------
 # ## Improved correlation between field measurements and CHM, but a lot of data has been lost  going to a lower resolution
 # 
-# print(paste0("After low res:", cor(binCHM, vegTreesmax$height, use="complete")))
+# print(paste0("After low res:", cor(binCHM, vegTrees_fil_1$height, use="complete")))
 
-## ----vegTrees-2--------------------------------------------------------------------------------------------
-## Approach #2: Use trees as the starting point instead of map area. Start by sorting the veg structure data by height
 
-vegTrees <- vegTrees[order(vegTrees$height, decreasing=T),]
-
-## ----vegTreesfil----------------------------------------------------------------------------------------------
-# For each tree, estimate which nearby trees might be beneath its canopy and discard those points:
+## ----vegTrees-filter-3--------------------------------------------------------------------------------------------
+## Approach #3: Use trees as the starting point instead of map area. 
+## For each tree, estimate which nearby trees might be beneath its canopy and discard those points:
 ## 1. Calculate the distance of each tree from the target tree
 ## 2. Pick a reasonable estimate for canopy size, and discard shorter trees within that radius (e.g., 0.3 times height)
 ## 3. Iterate over all trees
 
-#First, order the trees by decreasing height (????)
-vegTreesfil <- vegTrees[order(vegTrees$height, decreasing=T),]
+Trees_fil_3 = Trees
 
-for(i in 1:nrow(vegTrees)) {
-  if(is.na(vegTreesfil$height[i]))
+for(i in 1:nrow(Trees)) {
+  if(is.na(Trees_fil_3$height[i]))
     next
-  dist <- sqrt((vegTrees$adjEasting[i]-vegTrees$adjEasting)^2 +
-                 (vegTrees$adjNorthing[i]-vegTrees$adjNorthing)^2)
-  vegTreesfil$height[which(dist<0.3*vegTrees$height[i] &
-                        vegTrees$height<vegTrees$height[i])] <- NA
+  dist <- sqrt((Trees$adjEasting[i]-Trees$adjEasting)^2 +
+                 (Trees$adjNorthing[i]-Trees$adjNorthing)^2)
+  Trees_fil_3$height[which(dist<0.3*Trees$height[i] &
+                        Trees$height<Trees$height[i])] <- NA
 }
 
 ## Filter out heights == NA
-vegTreesfil = vegTreesfil[which(!is.na(vegTreesfil$height))]
+not_na = which(!is.na(Trees_fil_3$height))
+Trees_fil_3 = Trees_fil_3[not_na, ]
 
-## ----filter-chm by max value--------------------------------------------------------------
 ## Now extract the raster values, as above, increasing the buffer size to better account for the uncertainty
 ## in the lidar data as well as the uncertainty in the ground locations
 
-filterCHM <- raster::extract(chm, cbind(vegTreesfil$adjEasting, vegTreesfil$adjNorthing),
-                             buffer=vegTreesfil$adjCoordinateUncertainty+1, fun=max)
+CHM_fil_3 <- raster::extract(CHM, cbind(Trees$adjEasting, Trees$adjNorthing),
+                             buffer=Trees$adjCoordinateUncertainty+1, fun=max)
+CHM_fil_3 = CHM_fil_3[not_na]
 
-png(filename = paste0(resultsDir, fullSite,"_alltrees.png"), width = 800, height = 600)
-pLim = c(0, max(max(vegTreesfil$height, na.rm = TRUE), max(filterC, na.rm = TRUE)))
+fn_suffix = "buffer_3"
+sub_title = "Trees: Buffer 3"
+plot_chm_hgt_vs_sampled_hgt(Trees_fil_3$height, CHM_fil_3, 
+                            resultsDir, fullSite, fn_suffix, sub_title , screen = screen)
 
-plot(filterCHM~vegTreesfil$height, pch=20,
-     xlim = pLim, ylim = pLim,
-     xlab = xLab, ylab = yLab,
-     main = c(fullSite, 'All Trees'))
+x = cbind(Trees_fil_3, CHM_fil_3)
+write.csv(x, paste0(resultsDir, paste0(fullSite, fn_suffix, '.csv')))
 
-regress = lm(filterCHM ~ 0 + vegTreesfil$height)
-lines(pLim, pLim*regress$coefficients, col="black", lwd = 3)
-dev.off()
-
+## ----vegTrees_fil_4----------------------------------------------------------------------------------------------
 ## Improved correlation between field measurements and CHM, filtering out most understory trees without losing
 ## as many overstory trees
-print(paste0("Filtered by max CHM ???:", cor(filterCHM,vegTreesfil$height)))
+Trees_fil_4 <- Trees
+CHM_fil_4 <- raster::extract(CHM, 
+                             cbind(Trees$adjEasting, Trees$adjNorthing),
+                             buffer=Trees$adjCoordinateUncertainty+1, fun=max)
 
-filterCHM <- raster::extract(chm, 
-                             cbind(vegTreesfil$adjEasting, vegTreesfil$adjNorthing),
-                             buffer=vegTreesfil$adjCoordinateUncertainty+1, fun=max)
+fn_suffix = "filtered_4"
+sub_title = "Buffer: 4"
+plot_chm_hgt_vs_sampled_hgt(Trees_fil_4$height, CHM_fil_4, 
+                            resultsDir, fullSite, fn_suffix, sub_title, screen = screen)
 
-png(filename = paste0(resultsDir, fullSite,"_livingtrees.png"), width = 800, height = 600)
+## Write Trees_fil_2 to a csv file for outside processing
+x = cbind(Trees, CHM_fil_4)
+write.csv(x, paste0(resultsDir, paste0(fullSite, fn_suffix, '.csv')))
 
-plot.window(xlim = pLim, ylim = pLim)
-plot(filterCHM~vegTreesfil$height, pch=20, #CHMtrees~vegTrees$height
-     xlim = pLim, ylim = pLim,
-     xlab = xLab, ylab = yLab,
-     main = c(fullSite, "Living Trees"))
-
-regress = lm(filterCHM ~ 0 + vegTreesfil$height)
-lines(pLim, pLim*regress$coefficients, col="black", lwd = 3)
-dev.off()
-
-print(paste0("Live trees: ", cor(filterCHM,vegTreesfil$height)))
-
-## Write the data to a csv file
-## TODO: insert the CHMheight into the vegTreesfil dataframe
-write.csv(vegTreesfil, paste0(resultsDir, paste0(fullSite,'_vegTreesfil.csv')))
-CHMheightStr = list(sprintf("%0.5f",filterCHM ))
-write.csv(CHMheightStr, paste0(resultsDir, paste0(fullSite,'_CHMheight.csv')))
-
+## ----Plot the RGB image
 ## plot the RGB image, overlay with the tree circles and add the plot boxes
-## limit the extent to the area of veg
+## limit the extent to the area of Trees
 rgb = brick(RGB_file)
 
-png(paste0(resultsDir, fullSite, "_tree_locations.png"),
-    width = 1000, height = 600, unit = 'px')
+png(paste0(resultsDir, fullSite, "_tree_locations.png"), width = 1000, height = 600)
 
 ext_mgn = 40  ## extra margin so all the circles are shown completely
-ext = extent(c(min(veg$adjEasting-ext_mgn,  na.rm = TRUE), max(veg$adjEasting+ext_mgn,  na.rm = TRUE),
-               min(veg$adjNorthing-ext_mgn, na.rm = TRUE), max(veg$adjNorthing+ext_mgn, na.rm = TRUE)))
+ext = extent(c(min(Trees$adjEasting-ext_mgn,  na.rm = TRUE), max(Trees$adjEasting+ext_mgn,  na.rm = TRUE),
+               min(Trees$adjNorthing-ext_mgn, na.rm = TRUE), max(Trees$adjNorthing+ext_mgn, na.rm = TRUE)))
 plotRGB(rgb,
         ext = ext,
         xlab = "UTM X (m)", ylab = "UTM Y (m)",
@@ -412,9 +372,9 @@ axis(2)
 axis(3, labels = FALSE)
 axis(4, labels = FALSE)
 
-symbols(vegTreesfil$adjEasting,
-        vegTreesfil$adjNorthing,
-        circles=vegTreesfil$stemDiameter/100/2, inches = 0.1,
+symbols(Trees$adjEasting,
+        Trees$adjNorthing,
+        circles=Trees$stemDiameter/100/2, inches = 0.1,
         lwd = 2, fg = 'red',
         add = TRUE)
 dev.off()
@@ -424,7 +384,7 @@ dev.off()
 # aop_shp = readOGR("F:/NEON/Site_data/AOP_flightboxesAllSites.shp")
 #
 # ## convert projection from lat/lon to UTM (CHM is in UTM)
-# aop_shp_UTM = spTransform(aop_shp, crs(chm))
+# aop_shp_UTM = spTransform(aop_shp, crs(CHM))
 #
 # ## extract the field sampling boundary for the desired site
 # ii = which(aop_shp_UTM@data$siteID == site)
