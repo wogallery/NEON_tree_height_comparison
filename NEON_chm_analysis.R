@@ -376,6 +376,9 @@ axis(4, labels = FALSE)
 symbols(Trees$adjEasting,
         Trees$adjNorthing,
         circles=Trees$stemDiameter/100/2, inches = 0.1,
+=======
+symbols(Trees_fil_3$adjEasting,
+        Trees_fil_3$adjNorthing,
         circles=Trees_fil_3$stemDiameter/100/2, inches = 0.1,
 >>>>>>> Stashed changes
         lwd = 2, fg = 'red',
