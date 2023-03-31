@@ -1,11 +1,5 @@
-site     = 'BONA'
-year     = '2021'
-domain   = 'D19'
-visit    = '4'
-wd       = "F:/NEON/Tutorials/R/VegStrCHMR"
-
-screen = FALSE
-## NEON_chm_analysis <- function(site, year, domain, visit, wd = '.')  {
+NEON_chm_analysis <- function(site, year, domain, visit, 
+                              wd = './', resultsDir = "./analysis", screen = FALSE)  {
 
 ## ----Install_packages, eval=FALSE------------------------------------------------------------------------
 ##
@@ -45,18 +39,34 @@ RGB_dpID = "DP3.30010.001"
 fullSite  = paste0(year, '_', site, '_', visit)
 startdate = paste0(year, '-01')
 enddate   = paste0(year, '-12')
-resultsDir = './results/'
+
 nCores = 6
 
 ## Create the fully-qualified file names for the CHM and the RGB mosaic files
-CHM_path_root = paste(sep = '/',
-                      create_NEON_datafile_path(chm_dpID, site = site, year = year, domain = domain, visit = visit, root_path = data_root_path))
-CHM_file   = paste0(CHM_path_root, "/DiscreteLidar/CanopyHeightModelGtifMosaic/", fullSite, "_CHM_mosaic.tif")
-CHM10_file = paste0(CHM_path_root, "/DiscreteLidar/CanopyHeightModelGtifMosaic/", fullSite, "_CHM_mosaic_10.tif")
+CHM_path_root =file.path(create_NEON_datafile_path(chm_dpID, site = site, year = year, 
+                                                   domain = domain, visit = visit, root_path = data_root_path),
+                         "DiscreteLidar/CanopyHeightModelMosaic")
+CHM_file   = file.path(CHM_path_root, paste0(fullSite, "_CHM.tif"))
+CHM10_file = file.path(CHM_path_root, paste0(fullSite, "_CHM_10.tif"))
 
-RGB_path_root = paste(sep = '/',
-                      create_NEON_datafile_path(RGB_dpID, site = site, year = year, domain = domain, visit = visit, root_path = data_root_path))
-RGB_file = paste0(RGB_path_root, "/Camera/Mosaic/", fullSite, "_RGB_mosaic.tif")
+RGB_path_root = file.path(create_NEON_datafile_path(RGB_dpID, site = site, year = year, 
+                                                    domain = domain, visit = visit, root_path = data_root_path),
+                          "Camera/Mosaic")
+RGB_file = file.path(RGB_path_root, paste0(fullSite, "_Camera_mosaic.tif"))
+
+error = FALSE
+if(!file.exists(CHM_file)){
+  print(paste0("CHM file does not exist: ", CHM_file))
+  error = TRUE
+}
+if(!dir.exists(RGB_path_root)){
+  print(paste0("RGB path root does not exist: ", RGB_path_root))
+  error = TRUE
+}
+if(error) {
+  print("Error in files")
+  stop()
+}
 
 ## ABoVE is dominated by spruce trees (see book ("Tree Line") (not used)
 whiteSpruce = "Picea glauca (Moench) Voss"
@@ -188,7 +198,7 @@ veg = veg[desiredVariables]
 
 ## ----get-chm, results="hide"-----------------------------------------------------------------------------
 CHM <- raster(CHM_file)
-png(filename = paste0(resultsDir, fullSite, "_CHM.png"), width = 800, height = 800)
+png(file.path(resultsDir, paste0(fullSite, "_CHM.png")), width = 800, height = 800)
 plot(CHM,
      col = topo.colors(20),
      xlab = "Easting (m)", ylab = "Northing (m)",
@@ -222,15 +232,18 @@ CHM_trees_hgt <- extract(CHM,
                            Trees$adjNorthing),
                      buffer=Trees$adjCoordinateUncertainty,
                      fun=max)
+## filter out zero tree heights
+ii = which(CHM_trees_hgt != 0 & Trees$height != 0.)
 
 fn_suffix = "_buffer_1"
 sub_title = "Trees: Buffer 1"
-plot_chm_hgt_vs_sampled_hgt(Trees$height, CHM_trees_hgt, 
+plot_chm_hgt_vs_sampled_hgt(Trees$height[ii], CHM_trees_hgt[ii], 
                             resultsDir, fullSite, fn_suffix, sub_title, screen = screen)
 
 ## Write Trees to a csv file for outside processing
+## Note: zero heights not filtered out
 x = cbind(Trees, CHM_trees_hgt)
-write.csv(x, paste0(resultsDir, paste0(fullSite, fn_suffix,'.csv')))
+write.csv(x, file.path(resultsDir, paste0(fullSite, fn_suffix,'.csv')))
 
 
 ## ----filter_2-expand buffer by 1 meter-------------------------------------------------------------
@@ -325,13 +338,13 @@ CHM_fil_3 <- raster::extract(CHM, cbind(Trees$adjEasting, Trees$adjNorthing),
                              buffer=Trees$adjCoordinateUncertainty+1, fun=max)
 CHM_fil_3 = CHM_fil_3[not_na]
 
-fn_suffix = "buffer_3"
+fn_suffix = "_buffer_3"
 sub_title = "Trees: Buffer 3"
 plot_chm_hgt_vs_sampled_hgt(Trees_fil_3$height, CHM_fil_3, 
                             resultsDir, fullSite, fn_suffix, sub_title , screen = screen)
 
 x = cbind(Trees_fil_3, CHM_fil_3)
-write.csv(x, paste0(resultsDir, paste0(fullSite, fn_suffix, '.csv')))
+write.csv(x, file.path(resultsDir, paste0(fullSite, fn_suffix, '.csv')))
 
 ## ----vegTrees_fil_4----------------------------------------------------------------------------------------------
 ## Improved correlation between field measurements and CHM, filtering out most understory trees without losing
@@ -341,21 +354,21 @@ CHM_fil_4 <- raster::extract(CHM,
                              cbind(Trees$adjEasting, Trees$adjNorthing),
                              buffer=Trees$adjCoordinateUncertainty+1, fun=max)
 
-fn_suffix = "filtered_4"
+fn_suffix = "_buffer_4"
 sub_title = "Buffer: 4"
 plot_chm_hgt_vs_sampled_hgt(Trees_fil_4$height, CHM_fil_4, 
                             resultsDir, fullSite, fn_suffix, sub_title, screen = screen)
 
 ## Write Trees_fil_2 to a csv file for outside processing
 x = cbind(Trees, CHM_fil_4)
-write.csv(x, paste0(resultsDir, paste0(fullSite, fn_suffix, '.csv')))
+write.csv(x, file.path(resultsDir, paste0(fullSite, fn_suffix, '.csv')))
 
 ## ----Plot the RGB image
 ## plot the RGB image, overlay with the tree circles and add the plot boxes
 ## limit the extent to the area of Trees
 rgb = brick(RGB_file)
 
-png(paste0(resultsDir, fullSite, "_tree_locations.png"), width = 1000, height = 600)
+png(file.path(resultsDir, paste0(fullSite, "_tree_locations.png")), width = 1000, height = 600)
 
 ext_mgn = 40  ## extra margin so all the circles are shown completely
 ext = extent(c(min(Trees$adjEasting-ext_mgn,  na.rm = TRUE), max(Trees$adjEasting+ext_mgn,  na.rm = TRUE),
@@ -372,15 +385,10 @@ axis(2)
 axis(3, labels = FALSE)
 axis(4, labels = FALSE)
 
-<<<<<<< Updated upstream
 symbols(Trees$adjEasting,
         Trees$adjNorthing,
         circles=Trees$stemDiameter/100/2, inches = 0.1,
-=======
-symbols(Trees_fil_3$adjEasting,
-        Trees_fil_3$adjNorthing,
-        circles=Trees_fil_3$stemDiameter/100/2, inches = 0.1,
->>>>>>> Stashed changes
+
         lwd = 2, fg = 'red',
         add = TRUE)
 dev.off()
@@ -397,9 +405,4 @@ dev.off()
 # ## flt_bndry: box including the complete flight boundary
 # flt_bndry = aop_shp_UTM@polygons[[ii]]@Polygons[[1]]@coords
 
-## }
-# NEON_chm_analysis(
-#   site = 'DEJU',
-#   year = '2021',
-#   domain = 'D19',
-#   visit = '4')
+ }

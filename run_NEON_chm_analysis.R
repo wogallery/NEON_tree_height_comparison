@@ -1,21 +1,27 @@
-site     = 'SJER'
+## Program to run the routine NEON_chm_analysis
+site     = 'DEJU'
 year     = '2017'
-domain   = 'D17'
-visit    = '2'
-wd       = "F:/NEON/Tutorials/R/VegStrCHMR"
+domain   = 'D19'
+visit    = '1'
+wd       = "F:/NEON/analysis"  # Modify to fit your system
+resultsDir = wd  # Where to put the analysis
+if(!file.exists(wd)) dir.create(wd)
+setwd(wd)
 
 print(paste0(
   "site: ", site,
   "year: ",  year,
   "domain: ", domain,
   "visit: ", visit, 
-  "wd: ", wd 
+  "wd: ", wd, 
+  "resultsDir = ", resultsDir
 ))
 
 NEON_chm_analysis( 
-  site     = 'SJER',
-  year     = '2019',
-  domain   = 'D17',
-  visit    = '4',
-  wd       = "F:/NEON/Tutorials/R/VegStrCHMR",
+  site,
+  year,
+  domain,
+  visit,
+  wd,
+  resultsDir, 
   screen = FALSE)
